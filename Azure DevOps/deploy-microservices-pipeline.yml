@@ -1,0 +1,153 @@
+trigger:
+- main
+
+resources:
+- repo: self
+
+variables:
+  - name: imageRepository
+    value: 'nginx'
+  - name: containerRegistry
+    value: '$(container_registry_name).azurecr.io'
+  - name: dockerfilePath
+    value: '$(Build.SourcesDirectory)/Docker/Dockerfile'
+  - name: tag 
+    value: '$(Build.BuildId)'
+  - name: vmImageName 
+    value: 'ubuntu-latest'
+  - group: acr-aks-cluster-variables
+
+stages:
+- stage: Build
+  displayName: Build and Push Image to ACR
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: replacetokens@5
+      inputs:
+        targetFiles: 'Docker/*.html'
+        encoding: 'auto'
+        tokenPattern: 'default'
+        writeBOM: false
+        actionOnMissing: 'warn'
+        keepToken: false
+        actionOnNoFiles: 'continue'
+        enableTransforms: false
+        enableRecursion: false
+        useLegacyPattern: false
+        enableTelemetry: true  
+
+    - task: Docker@2
+      displayName: Build and push an image to container registry
+      inputs:
+        command: buildAndPush
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: acr-sc
+        tags: |
+          $(tag)
+
+    - publish: $(System.DefaultWorkingDirectory)/kube-manifests/app_with_ingress
+      artifact: 'kube-manifests'
+      displayName: "Publish Manifest files"
+
+- stage: Ingress_Controller_Installation
+  jobs:
+    - deployment: Install_Nginx_Ingress_Controller
+      displayName: Install Nginx Ingress Controller
+      pool:
+       vmImage: 'ubuntu-latest'
+      environment: Ingress-Controller      
+      strategy:
+        runOnce:
+          deploy:
+            steps:    
+              - task: HelmInstaller@1
+                name: InstallHelmv3
+                inputs:
+                  helmVersionToInstall: 'latest'
+
+              - task: AzureCLI@2
+                name: RunAzCLIScripts
+                inputs:
+                  azureSubscription: 'sc-1'
+                  scriptLocation: 'inlineScript'
+                  scriptType: 'bash'
+                  inlineScript: |
+                    az aks get-credentials -g $(resource_group_name) -n $(resource_group_name)-cluster --admin
+                    rg=az aks show --resource-group $(resource_group_name) --name $(resource_group_name)-cluster --query nodeResourceGroup -o tsv
+                    Ip=$(az network public-ip create --resource-group $(rg) --name ingress-public-ip --sku Standard --allocation-method static --query publicIp.ipAddress -o tsv)
+                    echo "##vso[task.setvariable variable=ipaddress;]$Ip"
+                    kubectl create namespace ingress-basic
+                    helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx 
+                    helm repo update
+              
+              - task: HelmDeploy@0
+                name: nginx
+                displayName: Install nginx Ingress Controller
+                inputs:
+                  connectionType: 'None'
+                  namespace: 'ingress-basic'
+                  command: 'upgrade'
+                  chartType: 'Name'
+                  chartName: 'ingress-nginx/ingress-nginx'
+                  releaseName: 'nginx'
+                  overrideValues: 'controller.service.loadBalancerIP=$(ipaddress),controller.publishService.enabled=true,controller.nodeSelector."beta\.kubernetes\.io/os"=linux,defaultBackend.nodeSelector."beta\.kubernetes\.io/os"=linux,controller.service.externalTrafficPolicy=Local'
+                  arguments: '--timeout 20m0s'  
+
+- stage: Deploy_Microservices
+  displayName: Depoy Microservices
+  jobs:
+    - deployment: Deploy_Microservices
+      displayName: Deploy Microservices
+      pool:
+       vmImage: 'ubuntu-latest'
+      environment: Deploy-Microservices      
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - download: current
+              displayName: "Pull kube manifests"
+              artifact: kube-manifests
+            - task: replacetokens@5
+              inputs:
+                targetFiles: '$(Pipeline.Workspace)/kube-manifests/*.yml'
+                encoding: 'auto'
+                tokenPattern: 'default'
+                writeBOM: false
+                actionOnMissing: 'warn'
+                keepToken: false
+                actionOnNoFiles: 'continue'
+                enableTransforms: false
+                enableRecursion: false
+                useLegacyPattern: false
+                enableTelemetry: true
+
+            - task: Kubernetes@1
+              displayName: Deploy Microservices on cluster
+              inputs:
+                connectionType: 'Azure Resource Manager'
+                azureSubscriptionEndpoint: 'sc-1'
+                azureResourceGroup: 'demo-aks'
+                kubernetesCluster: 'demo-aks-cluster'
+                command: 'apply'
+                arguments: '-f $(Pipeline.Workspace)/kube-manifests/**'
+                secretType: 'dockerRegistry'
+                containerRegistryType: 'Azure Container Registry'
+
+            - task: Kubernetes@1
+              inputs:
+                connectionType: 'Azure Resource Manager'
+                azureSubscriptionEndpoint: 'sc-1'
+                azureResourceGroup: 'demo-aks'
+                kubernetesCluster: 'demo-aks-cluster'
+                command: 'get'
+                arguments: 'svc -n ingress-basic -o wide'
+                secretType: 'dockerRegistry'
+                containerRegistryType: 'Azure Container Registry'
+                outputFormat: 'none'
+      

@@ -1,0 +1,256 @@
+trigger:
+- master
+
+stages:
+- stage: Build
+  displayName: Build Stage
+  jobs:
+  - job: Webapp
+    displayName: Build Web App Job
+    pool:
+      vmImage: 'windows-latest'
+
+    variables:
+      solution: '**/*.sln'
+      buildPlatform: 'Any CPU'
+      buildConfiguration: 'Release'
+
+    steps:
+    - task: NuGetToolInstaller@1
+  
+    - task: NuGetCommand@2
+      inputs:
+        restoreSolution: '$(solution)'
+
+    - task: SonarCloudPrepare@1
+      inputs:
+        SonarCloud: 'sonarcloud'
+        organization: 'dotnetframeworkapps'
+        scannerMode: 'MSBuild'
+        projectKey: 'dotnetframeworkapp-1'
+        projectName: 'DotNetFrameworkApp'
+        extraProperties: |
+           sonar.cs.opencover.reportsPaths=$(Build.SourcesDirectory)/TestResults/Coverage/Reports/Cobertura.xml
+           sonar.exclusions=**/wwwroot/lib/**/*
+      enabled: true
+
+    - task: VSBuild@1
+      inputs:
+        solution: '$(solution)'
+        msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(Build.ArtifactStagingDirectory)"'
+        platform: '$(buildPlatform)'
+        configuration: '$(buildConfiguration)'
+
+    - task: VSTest@2
+      inputs:
+        testSelector: 'testAssemblies'
+        testAssemblyVer2: |
+          **\*test*.dll
+          !**\*TestAdapter.dll
+          !**\obj\**
+        searchFolder: '$(System.DefaultWorkingDirectory)'
+        platform: '$(buildPlatform)'
+        configuration: '$(buildConfiguration)'
+        publishRunAttachments: false
+        codeCoverageEnabled: true
+      enabled: true
+
+    - task: CoverageConverter@0
+      inputs:
+        searchFolderForTestFiles: '$(System.DefaultWorkingDirectory)'
+        vsTestExeFileLocation: 'C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\IDE\Extensions\TestPlatform\vstest.console.exe'
+        vsTestArgs: '/EnableCodeCoverage'
+        listTestFiles: 'd:\a\1\s\tests\Tests\bin\Release\Tests.dll'
+        temporaryFolderForCodeCoverage: 'Agent.TempDirectory'
+        temporaryFileCoveragexml: '\TestResults\DynamicCodeCoverage.coveragexml'
+        codeCoverageExeFileLocation: 'C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Team Tools\Dynamic Code Coverage Tools\CodeCoverage.exe'
+      enabled: true
+
+    - task: reportgenerator@4
+      displayName: 'Generate Coverage Report'
+      inputs:
+        reports: '$(Agent.TempDirectory)\TestResults\DynamicCodeCoverage.coveragexml'
+        targetdir: '$(System.DefaultWorkingDirectory)\TestResults\Coverage\Reports'
+        reporttypes: 'HtmlInline_AzurePipelines;Cobertura;Badges'
+      enabled: true
+
+    - task: SonarCloudAnalyze@1
+      enabled: true
+
+    - task: SonarCloudPublish@1
+      inputs:
+        pollingTimeoutSec: '300'
+      enabled: true
+
+    - task: sonarcloud-buildbreaker@2
+      inputs:
+        SonarCloud: 'sonarcloud'
+        organization: 'DotnetFrameworkApp'
+      enabled: true
+    - task: PublishCodeCoverageResults@1
+      displayName: 'Publish Coverage Report'
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: '$(System.DefaultWorkingDirectory)\TestResults\Coverage\Reports\Cobertura.xml'
+        reportDirectory: '$(System.DefaultWorkingDirectory)\TestResults\Coverage\Reports'
+      enabled: true
+    
+
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: 
+        Contents: 'PSS.ps1'
+        TargetFolder: '$(build.artifactstagingdirectory)'
+      enabled: true  
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Artifact: WebApp'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'webapp'
+        publishLocation: 'Container'
+      enabled: true
+
+    
+    
+    
+
+    
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: 'Arm Templates'
+        Contents: '**'
+        TargetFolder: '$(Build.TemplatesDirectory)'
+      enabled: true
+
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.TemplatesDirectory)'
+        ArtifactName: 'ArmTemplates'
+        publishLocation: 'Container'
+      enabled: true
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(System.DefaultWorkingDirectory)\TestResults\Coverage\Reports\Cobertura.xml'
+        ArtifactName: 'Coverage Reports'
+        publishLocation: 'Container'
+      enabled: true
+
+  - job: Database
+    pool:
+      vmImage: 'vs2017-win2016'
+    steps:
+  
+    - task: MSBuild@1
+      displayName: Build solution WebApp.Database.sqlproj
+      inputs:
+        solution: '**/*.sqlproj'
+        msbuildArguments: '/p:OutDir=$(Build.ArtifactStagingDirectory)'
+      enabled: true
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Artifact: DacPacFile'
+      inputs:
+        ArtifactName: DacPacFile
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      enabled: true      
+
+- stage: prod
+  displayName: 'Deploy to prod'
+  dependsOn: Build 
+  jobs:
+  - deployment: Production
+    pool:
+      vmImage: windows-latest
+    variables:
+    - group: 'Release'
+    - name : 'WebappResourceExistingStatus'
+      value : 'flase'
+      
+    - name : 'SqlResouceExistenceStatus'
+      value : 'flase'
+    
+    environment: 'Production'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+         
+          - task: AzurePowerShell@4
+            displayName: 'PS : check whether the webapp resource is already existing or not'
+            inputs:
+              azureSubscription: 'sc-1'
+              scriptType: filePath
+              scriptPath: $(Pipeline.Workspace)/**/PSS.ps1
+              azurePowerShellVersion: latestVersion
+               
+           
+         
+          - task: AzureResourceGroupDeployment@2
+            displayName: 'Azure Deployment:Create Or Update SqlServer Resource'
+            condition: and(succeeded(), eq(variables['def'], ''))
+            inputs:
+              azureSubscription: 'sc-1'
+              resourceGroupName: '$(resourceGroupName)'
+              location: '$(location)'
+              csmFile: '$(Pipeline.Workspace)/**/SqlServer-database-ARMtemplate.json'
+              overrideParameters: '-databaseServerName $(databaseServerName) -databaseUsername $(SqlUsername) -databasePassword $(SqlPassword) -databaseLocation $(location) -databaseName $(DatabaseName) -databaseEdition "Basic"'
+            enabled: true
+
+       
+          - task: AzureResourceGroupDeployment@2
+            displayName: 'Azure Deployment:Create Or Update WebApp Resource'
+            condition: and(succeeded(), eq(variables['abc'], ''))
+            inputs:
+              azureSubscription: 'sc-1'
+              resourceGroupName: '$(resourceGroupName)'
+              location: '$(location)'
+              csmFile: '$(Pipeline.Workspace)/**/windows-webapp-ARMtemplate.json'
+              overrideParameters: '-webAppName $(WebAppName) -hostingPlanName $(AppServicePlan) -appInsightsLocation $(location) -sku "F1 Free" '
+            enabled: true
+          
+
+
+          - task: SqlAzureDacpacDeployment@1
+            displayName: 'Azure SQL DacpacTask'
+            inputs:
+              azureSubscription: 'sc-1'
+              ServerName: '$(ServerName)'
+              DatabaseName: '$(DatabaseName)'
+              SqlUsername: '$(SqlUsername)'
+              SqlPassword: '$(SqlPassword)'
+              DacpacFile: '$(Pipeline.Workspace)/**/*.dacpac'
+              IpDetectionMethod: 'AutoDetect'
+            enabled: true
+
+          - task: AzureRmWebAppDeployment@4
+            inputs:
+              ConnectionType: 'AzureRM'
+              azureSubscription: 'sc-1'
+              appType: 'webApp'
+              WebAppName: '$(WebAppName)'
+              packageForLinux: '$(Pipeline.Workspace)/**/*.zip'
+            #  AppSettings: '-ASPNETCORE_ENVIRONMENT Production'
+              enableCustomDeployment: true
+              DeploymentType: 'webDeploy'
+              RemoveAdditionalFilesFlag: true
+              enableXmlVariableSubstitution: true
+            enabled: true
+
+          - task: AzureAppServiceSettings@1
+            inputs:
+              azureSubscription: 'sc-1'
+              appName: '$(WebAppName)'
+              resourceGroupName: '$(resourceGroupName)'
+              connectionStrings: |
+                [
+                   {
+                    "name": "ProductsContext",
+                    "value": "Server=tcp:$(ServerName),1433;Initial Catalog=$(DatabaseName);Persist Security Info=False;User ID=$(SqlUsername);Password=$(SqlPassword);MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;",
+                    "type": "SQLServer",
+                    "slotSetting": false
+                   }
+                ]
+            enabled: true
