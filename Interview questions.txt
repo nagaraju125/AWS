@@ -1,0 +1,177 @@
+how to restrict access for particular iam role?
+ssl and https certificates difference?
+private subnet create terraform aws?
+certficate configuration in application load balancer aws?
+how to import custom certificate in application load balancer aws
+what will happen to root volume when we change the instance type?
+how to access ec2 console?
+how to give read access to user in s3 bucket?
+rancher kubernetes
+How can I know if a branch has been already merged into master?
+heapster kubernetes?
+service account in kubernetes
+How To Dockerize An Application
+what is virtual directory
+how to update the deployment file in kubernetes
+How to do Canary Deployments on Kubernetes
+How to build a zero-downtime application on Kubernetes
+How do I configure AWS network load balancers to route HTTPS traffic with Terraform?
+firewall configuration in network load balancer aws?
+how to change user permissions in github repository
+how to use two subscriptions in terraform how use it
+Deploy to Multiple Azure Subscriptions in Single Project
+how to install custom plugin in jenkins
+how to use slave in jenkins declarative pipeline
+Kubernetes ImagePullBackOff error: what you need to know
+how to create metrics in prometheus
+how to enable metrics server in kubernetes
+raft database kubernetes
+master node goes down what happens
+Docker Container Lifecycle Management:
+create dashboard in grafana prometheus
+How to Debug and Fix Common Docker Issues
+ansible playbook usage
+build error maven
+how to ignore the test goal in maven
+maven goals list
+Check in to a folder that is controlled by a gated check-in build process
+Azure DevOps – Configure Self Hosted Agent for Azure Pipelines
+liveness probe not working how to troubleshoot
+quality profile and quality gate
+how could access templates in azure devops
+template variables azure devops
+different types of variables in azure devops
+types of gates in azure devops
+how to define self hosted agent in yaml pipeline
+azure yaml pipeline for msbuild project sample code
+
+------------------------------------------------------------
+28-Sep-2022
+
+what is velocity in agile methodology?
+what cloud computing?
+data center as a service vs cloud?
+docker compose file for python redis postgres database?
+ec2 vm creation using terraform?
+how to create iam role and policy for lambda function and dynamodb?
+how to pass variable from one module to another module in terraform?
+how to connect on premises server for security jenkins pipeline?
+how to automate aws access key rotation?
+--------------------------------------------------------------------
+29-Sep-2022 Hitachi
+
+terraform modules
+terraform work flow
+create azure vm using terraform
+what is autoscalling in azure
+terraform commands
+null resource in terraform?
+------------------------------------------------------------------
+29-Sep-2022  LTI 
+
+sonarqube how to ignore files
+kubernetes cluster create minimum requirements
+kubernetes deployment file explained
+what is template in deployment file k8s
+how to map docker volume
+docker volumes
+how to do port mapping in docker
+docker commands list
+code coverage sonarqube
+how to create custom rule in sonarqube
+difference between jenkins and azure devops
+how to find logs in jenkins
+how to create environment variable in jenkins
+jenkins default variables
+How do I resolve merge conflicts in a Git repository?
+git squash
+branching strategy in git
+
+-----------------------------------------------------------------
+29-Sep-2022 CapGemini
+
+deploy static website using route53 using existing domain terraform?
+open file and update the file to another in linux?
+how to open file in every 5 mnts for updated files in linux
+multistage dockerfile usage?
+volume mounts in kubernetes?
+another name of replica set in kubernetes?
+kubernetes describe yaml file?
+metadata kubernetes?
+can we cluster using another cluster in kubernetes
+
+internet gateway
+----------------------------------------------------
+30-Sep-2022  - TechMahendra Client round
+
+how to check pod logs?
+how to upload image to docker hub?
+sandbox error in kubernetes?
+vpc peering configuration aws?
+volume types in aws?
+Can we attached EBS volume to multiple ec2 instance ?
+Difference EFS and EBS?
+nacl and security group in aws?
+how to handle master node and worker node in eks?
+pod debug kubernetes?
+how to check service not accessible in pod kubernetes?
+troubleshooting service kubernetes?
+how to know service is access to another pod in kubernetes?
+namespace kubernetes?
+imagepullbackoff kubernetes?
+crashloopbackoff kubernetes pod?
+issues in kubernetes?
+secrets kubernetes?
+explain kubernetes deployment yaml?
+how to enable cni in kubernetes cluster?
+cni use in kubernetes?
+kubernetes cluster installation on ubuntu?
+
+-----------------------------------------------------------
+
+
+
+how to increase ebs volume in aws ec2?
+without expose 22 port how copy file to another server command line?
+how to check database connection from web server through linux command?
+maven command to build
+advantages of master slave in jenkins
+what are required plugins for freestyle job
+how to delete running container in docker?
+how to check running process in docker container?
+docker entrypoint usage?
+how to find what changes i have done in file before commit git?
+how to check 2 days git commits?
+git checkout filename what will happen?
+how to access vm without open port in aws console? ans:- session manager
+key pair lost aws how to connect to ec2 instance?
+how to access private web application in through internet in aws?
+security to building infrastructure aws?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
